@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        features: ["--all-features"]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+
+    - name: Cache cargo directories
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo target dir
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+    - name: Build
+      run: cargo build --release ${{ matrix.features }} --verbose
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v4
+      if: matrix.features == '--all-features' && matrix.os == 'windows-latest'
+      with:
+        name: Binaries (Windows)
+        path: target/release/KIT-ILIAS-downloader.exe
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v4
+      if: matrix.features == '--all-features' && matrix.os == 'ubuntu-latest'
+      with:
+        name: Binaries (Linux)
+        path: target/release/KIT-ILIAS-downloader

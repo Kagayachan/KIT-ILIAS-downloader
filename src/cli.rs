@@ -1,0 +1,212 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
+use std::process::Command;
+use std::sync::atomic::{AtomicBool, AtomicUsize};
+
+use anyhow::anyhow;
+use anyhow::{Context, Result};
+use indicatif::ProgressBar;
+use once_cell::sync::Lazy;
+use structopt::StructOpt;
+
+#[derive(Debug, Clone, StructOpt)]
+#[structopt(name = env!("CARGO_PKG_NAME"))]
+pub struct Opt {
+	/// Do not download files
+	#[structopt(short, long)]
+	pub skip_files: bool,
+
+	/// Do not download Opencast videos
+	#[structopt(short, long)]
+	pub no_videos: bool,
+
+	/// Download forum content
+	#[structopt(short = "t", long)]
+	pub forum: bool,
+
+	/// Re-download already present files
+	#[structopt(short)]
+	pub force: bool,
+
+	/// Use content tree (experimental)
+	#[structopt(long)]
+	pub content_tree: bool,
+
+	/// Re-check OpenCast lectures (slow)
+	#[structopt(long)]
+	pub check_videos: bool,
+
+	/// Combine videos if there is more than one stream (requires ffmpeg)
+	#[structopt(long)]
+	pub combine_videos: bool,
+
+	/// Save overview pages of ILIAS courses and folders
+	#[structopt(long)]
+	pub save_ilias_pages: bool,
+
+	/// Verbose logging
+	#[structopt(short, multiple = true, parse(from_occurrences))]
+	pub verbose: usize,
+
+	/// Output directory
+	#[structopt(short, long, parse(from_os_str))]
+	pub output: PathBuf,
+
+	/// Parallel download jobs
+	#[structopt(short, long, default_value = "1")]
+	pub jobs: usize,
+
+	/// Proxy, e.g. socks5h://127.0.0.1:1080
+	#[structopt(short, long)]
+	pub proxy: Option<String>,
+
+	/// Use the system keyring
+	#[structopt(long)]
+	pub keyring: bool,
+
+	/// KIT account username
+	#[structopt(short = "U", long)]
+	pub username: Option<String>,
+
+	/// KIT account password
+	#[structopt(short = "P", long)]
+	pub password: Option<String>,
+
+	/// Path inside `pass(1)` to the password for your KIT account
+	#[structopt(long)]
+	pub pass_path: Option<String>,
+
+	/// ILIAS page to download
+	#[structopt(long)]
+	pub sync_url: Option<String>,
+
+	/// Requests per minute
+	#[structopt(long, default_value = "8")]
+	pub rate: usize,
+
+	/// Attempt to re-use session cookies
+	#[structopt(long)]
+	pub keep_session: bool,
+
+	/// Download all courses (default unless --sync-url is set)
+	#[structopt(long)]
+	pub all: bool,
+
+	/// Download only dashboard favourites instead of all courses
+	#[structopt(long)]
+	pub desktop: bool,
+
+	/// Save fetched HTML pages to <output>/.debug/ for troubleshooting
+	#[structopt(long)]
+	pub debug_html: bool,
+}
+
+pub static LOG_LEVEL: AtomicUsize = AtomicUsize::new(0);
+pub static PROGRESS_BAR_ENABLED: AtomicBool = AtomicBool::new(false);
+pub static PROGRESS_BAR: Lazy<ProgressBar> = Lazy::new(|| ProgressBar::new(0));
+
+macro_rules! log {
+	($lvl:expr, $($t:expr),+) => {{
+		#[allow(unused_imports)]
+		use colored::Colorize as _;
+		#[allow(unused_comparisons)] // 0 <= 0
+		if $lvl <= crate::cli::LOG_LEVEL.load(std::sync::atomic::Ordering::SeqCst) {
+			if crate::cli::PROGRESS_BAR_ENABLED.load(std::sync::atomic::Ordering::SeqCst) {
+				crate::cli::PROGRESS_BAR.println(format!($($t),+));
+			} else {
+				println!($($t),+);
+			}
+		}
+	}}
+}
+
+macro_rules! info {
+	($t:tt) => {
+		log!(0, $t);
+	};
+}
+
+macro_rules! success {
+	($t:tt) => {
+		log!(0, "{}", format!($t).bright_green());
+	};
+}
+
+macro_rules! warning {
+	($e:expr) => {{
+		log!(0, "Warning: {}", format!("{:?}", $e).bright_yellow());
+	}};
+	($msg:expr, $e:expr) => {{
+		log!(0, "Warning: {}", format!("{} {:?}", $msg, $e).bright_yellow());
+	}};
+	($msg1:expr, $msg2:expr, $e:expr) => {{
+		log!(0, "Warning: {}", format!("{} {} {:?}", $msg1, $msg2, $e).bright_yellow());
+	}};
+	(format => $($e:expr),+) => {{
+		log!(0, "Warning: {}", format!($($e),+).bright_yellow());
+	}};
+	($lvl:expr; $($e:expr),+) => {{
+		log!($lvl, "Warning: {}", format!($($e),+).bright_yellow());
+	}};
+}
+
+macro_rules! error {
+	($($prefix:expr),+; $e:expr) => {
+		log!(0, "{}: {}", format!($($prefix),+), format!("{:?}", $e).bright_red());
+	};
+	($e:expr) => {
+		log!(0, "Error: {}", format!("{:?}", $e).bright_red());
+	};
+}
+
+pub fn ask_user_pass(opt: &Opt) -> Result<(String, String)> {
+	let user = if let Some(username) = opt.username.as_ref() {
+		username.clone()
+	} else {
+		rprompt::prompt_reply("KIT account username: ").context("username prompt")?
+	};
+	let pass = if let Some(password) = opt.password.as_ref() {
+		password.clone()
+	} else if opt.keyring {
+		let keyring = keyring::Entry::new(env!("CARGO_PKG_NAME"), &user);
+		match keyring.get_password() {
+			Ok(password) => password,
+			Err(e) => {
+				error!(e);
+				rpassword::prompt_password("KIT account password: ").context("password prompt")?
+			},
+		}
+	} else if let Some(pass_path) = &opt.pass_path {
+		let pw_out = Command::new("pass").arg("show").arg(pass_path).output().map_err(|x| {
+			if x.kind() == ErrorKind::NotFound {
+				Error::new(ErrorKind::NotFound, "pass not found in $PATH!")
+			} else {
+				x
+			}
+		})?;
+		if !pw_out.status.success() {
+			return Err(Error::new(
+				ErrorKind::Other,
+				format!(
+					"`pass` failed with non-zero exit code {}: {}",
+					pw_out.status.code().expect("Failed retrieving pass exit code!"),
+					String::from_utf8(pw_out.stderr).expect("Failed decoding stderr of pass!")
+				),
+			))?;
+		} else {
+			String::from_utf8(pw_out.stdout)
+				.map(|x| {
+					x.lines()
+						.next()
+						.map(|x| x.to_owned())
+						.ok_or_else(|| anyhow!("empty pass(1) entry"))
+				})?
+				.expect("utf-8 decode of `pass(1)`-output failed")
+		}
+	} else {
+		rpassword::prompt_password("KIT account password: ").context("password prompt")?
+	};
+	Ok((user, pass))
+}

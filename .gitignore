@@ -1,0 +1,22 @@
+# Rust build artifacts
+target/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# ILIAS runtime files (may appear in output dir or project root)
+.iliaslogin
+.iliassession
+course_names.toml
+.debug/
+
+# Logs
+*.log
+download.log
