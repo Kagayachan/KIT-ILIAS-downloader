@@ -2,216 +2,265 @@
 
 Bulk download script for **ILIAS 9** (KIT ILIAS).
 
-Download your KIT ILIAS course materials to your computer — slides, PDFs, documents, and more. **No programming knowledge is required.**
-
----
-
-## What does it download?
-
 Download content from ILIAS. That includes:
 
-* **Files** — PDFs, PowerPoint slides, Word documents, ZIP archives, etc.
-* **Exercise sheets and solutions**
-* **Opencast lectures** (optional, large files)
-* **Forum posts** (optional)
+* files
+* exercise sheets and solutions
+* Opencast lectures
+* forum posts
 
-By default, the program downloads **all courses you are enrolled in** and saves them into folders:
-
-```
-ilias/
-├── 2304300 – Electrocatalysis/
-│   ├── Lecture/
-│   │   └── Vorlesung_01.pdf
-│   └── Exercise/
-└── 2311616 – Communication Systems and Protocols/
-    └── ...
-```
-
----
+> Make sure you use the **`main`** branch of this repository (not `master` or other branches).
 
 ## Installation
 
-> **Important:** On GitHub, make sure you are on the **`main`** branch before downloading.
-> Use the branch dropdown at the top-left of the repository page and select **`main`**.
+All steps below are done in a **terminal** (Terminal on macOS, PowerShell or Command Prompt on Windows).
 
-### Option 1: Download a pre-built program (recommended)
+### Option A: Clone and build (recommended)
 
-Go to the **[Releases](../../releases)** page and download the file for your operating system:
-
-| Your computer | File to download |
-|---------------|------------------|
-| Windows (64-bit) | `KIT-ILIAS-downloader-x86_64-pc-windows-msvc.zip` |
-| macOS (Apple Silicon) | `KIT-ILIAS-downloader-aarch64-apple-darwin.tar.gz` |
-| macOS (Intel) | `KIT-ILIAS-downloader-x86_64-apple-darwin.tar.gz` |
-| Linux (64-bit) | `KIT-ILIAS-downloader-x86_64-unknown-linux-gnu.tar.gz` |
-
-**Extract the archive:**
-
-- **Windows:** Right-click the `.zip` → **Extract All** → you get `KIT-ILIAS-downloader.exe`
-- **macOS / Linux:** Extract the `.tar.gz` → you get `KIT-ILIAS-downloader`
-
-> **macOS:** If the system blocks the app, go to **System Settings → Privacy & Security → Open Anyway**.
-
-### Option 2: Build from source (optional)
-
-Requires [Rust](https://www.rust-lang.org/tools/install).
+**macOS / Linux:**
 
 ```bash
-git clone https://github.com/kagayachan/KIT-ILIAS-downloader.git
+git clone -b main https://github.com/kagayachan/KIT-ILIAS-downloader.git
 cd KIT-ILIAS-downloader
-git checkout main
 cargo build --release
 ```
 
-The program will be at `target/release/KIT-ILIAS-downloader` (or `.exe` on Windows).
+The program is at `./target/release/KIT-ILIAS-downloader`.
 
----
+**Windows (PowerShell):**
+
+```powershell
+git clone -b main https://github.com/kagayachan/KIT-ILIAS-downloader.git
+cd KIT-ILIAS-downloader
+cargo build --release
+```
+
+The program is at `.\target\release\KIT-ILIAS-downloader.exe`.
+
+If you do not have Rust yet, install it from https://www.rust-lang.org/tools/install first.
+
+### Option B: Download a release binary from the terminal
+
+Go to [releases](../../releases), or download directly (replace the URL with the file for your system):
+
+**macOS (Apple Silicon):**
+
+```bash
+curl -L -o kit-ilias.tar.gz \
+  https://github.com/kagayachan/KIT-ILIAS-downloader/releases/latest/download/KIT-ILIAS-downloader-aarch64-apple-darwin.tar.gz
+tar -xzf kit-ilias.tar.gz
+chmod +x KIT-ILIAS-downloader
+```
+
+**macOS (Intel):**
+
+```bash
+curl -L -o kit-ilias.tar.gz \
+  https://github.com/kagayachan/KIT-ILIAS-downloader/releases/latest/download/KIT-ILIAS-downloader-x86_64-apple-darwin.tar.gz
+tar -xzf kit-ilias.tar.gz
+chmod +x KIT-ILIAS-downloader
+```
+
+**Linux:**
+
+```bash
+curl -L -o kit-ilias.tar.gz \
+  https://github.com/kagayachan/KIT-ILIAS-downloader/releases/latest/download/KIT-ILIAS-downloader-x86_64-unknown-linux-gnu.tar.gz
+tar -xzf kit-ilias.tar.gz
+chmod +x KIT-ILIAS-downloader
+```
+
+**Windows (PowerShell):**
+
+```powershell
+curl -L -o kit-ilias.zip `
+  https://github.com/kagayachan/KIT-ILIAS-downloader/releases/latest/download/KIT-ILIAS-downloader-x86_64-pc-windows-msvc.zip
+Expand-Archive -Path kit-ilias.zip -DestinationPath . -Force
+```
 
 ## Usage
 
-Open a terminal, go to the folder that contains the program, and run:
+Open a terminal. Navigate to the directory that contains the binary (or use the path from `cargo build`).
 
-**Windows:**
-```
-KIT-ILIAS-downloader.exe -o C:\Users\YourName\Downloads\ilias --no-videos
+### batch download (all courses)
+
+This downloads **all courses you are enrolled in** into one folder. You will be asked for your KIT username and password in the terminal.
+
+**macOS / Linux** (after `git clone` + `cargo build`):
+
+```bash
+cd KIT-ILIAS-downloader
+./target/release/KIT-ILIAS-downloader -o ~/Downloads/ilias --no-videos
 ```
 
-**macOS / Linux:**
-```
+**macOS / Linux** (after downloading a release tarball):
+
+```bash
 ./KIT-ILIAS-downloader -o ~/Downloads/ilias --no-videos
 ```
 
-The program will ask for your KIT account in the terminal:
+**Windows (PowerShell)** (after `git clone` + `cargo build`):
+
+```powershell
+cd KIT-ILIAS-downloader
+.\target\release\KIT-ILIAS-downloader.exe -o $env:USERPROFILE\Downloads\ilias --no-videos
+```
+
+**Windows (PowerShell)** (after downloading a release zip):
+
+```powershell
+.\KIT-ILIAS-downloader.exe -o $env:USERPROFILE\Downloads\ilias --no-videos
+```
+
+Example output:
 
 ```
 KIT account username: uabcd
-KIT account password: (nothing appears while typing — this is normal)
+KIT account password:
+Logging into ILIAS using KIT account..
+Logging into Shibboleth..
+Logging into ILIAS..
+Logged in!
+Writing 2311616 – Communication Systems and Protocols (SS 2026)/CSP_SS2026_Session 01_General Information.pdf
+...
+done
 ```
 
-When you see `Logged in!` and `Writing ...`, files are being saved to the folder you chose with `-o`.
+Remove `--no-videos` if you also want Opencast lecture videos (large and slow).
 
-> **Default behaviour:** Downloads **all your enrolled courses**. Use `--desktop` to download only dashboard favourites instead.
+### Download only dashboard favourites
 
-### Download one specific course
-
-Use `--sync-url` with a link copied from **inside ILIAS** (right-click a course link → Copy link address — **not** the browser address bar):
-
-```
-./KIT-ILIAS-downloader -o ~/Downloads/ilias --sync-url "https://ilias.studium.kit.edu/goto.php/crs/1234567" --no-videos
+```bash
+./target/release/KIT-ILIAS-downloader -o ~/Downloads/ilias --desktop --no-videos
 ```
 
----
+### Download a specific course or folder
 
-## Common tasks
+Use `--sync-url` with a link copied from an ILIAS page (right-click a link inside ILIAS → copy link address, **not** the browser address bar):
 
-### Download only slides and documents (no videos)
-
-Add `--no-videos` (shown in the examples above). This is the fastest option.
-
-### Also download lecture videos
-
-Remove `--no-videos` from the command:
-
-```
-./KIT-ILIAS-downloader -o ~/Downloads/ilias
+```bash
+./target/release/KIT-ILIAS-downloader -o ~/Downloads/ilias/ProPa \
+  --sync-url 'https://ilias.studium.kit.edu/goto.php/crs/2914319' \
+  --no-videos
 ```
 
-Videos are large and take much longer.
+### Re-download updated files
 
-### Download only your dashboard favourites (not all courses)
+By default, existing local files are skipped. To overwrite them (e.g. professor uploaded a new version of the same file):
 
-Add `--desktop`:
-
-```
-./KIT-ILIAS-downloader -o ~/Downloads/ilias --desktop --no-videos
+```bash
+./target/release/KIT-ILIAS-downloader -o ~/Downloads/ilias -f --no-videos
 ```
 
-### Get updated files (professor replaced a file)
-
-The program **skips files that already exist** on your computer. To re-download everything, add `-f`:
+### Options
 
 ```
-./KIT-ILIAS-downloader -o ~/Downloads/ilias -f --no-videos
+KIT-ILIAS-downloader 0.3.9
+
+USAGE:
+    KIT-ILIAS-downloader [FLAGS] [OPTIONS] --output <output>
+
+FLAGS:
+        --all                 Download all courses (default when --sync-url is not set)
+        --check-videos        Re-check OpenCast lectures (slow)
+        --combine-videos      Combine videos if there is more than one stream (requires ffmpeg)
+        --content-tree        Use content tree (experimental)
+        --debug-html          Save fetched HTML to <output>/.debug/ for troubleshooting
+        --desktop             Download only dashboard favourites instead of all courses
+    -f                        Re-download already present files
+    -t, --forum               Download forum content
+    -h, --help                Prints help information
+        --keep-session        Attempt to re-use session cookies
+        --keyring             Use the system keyring
+    -n, --no-videos           Do not download Opencast videos
+        --save-ilias-pages    Save overview pages of ILIAS courses and folders
+    -s, --skip-files          Do not download files
+    -V, --version             Prints version information
+    -v                        Verbose logging
+
+OPTIONS:
+    -j, --jobs <jobs>              Parallel download jobs [default: 1]
+    -o, --output <output>          Output directory
+        --pass-path <pass-path>    Path inside `pass(1)` to the password for your KIT account
+    -P, --password <password>      KIT account password
+    -p, --proxy <proxy>            Proxy, e.g. socks5h://127.0.0.1:1080
+        --rate <rate>              Requests per minute [default: 8]
+        --sync-url <sync-url>      ILIAS page to download
+    -U, --username <username>      KIT account username
 ```
 
-### Download only new files
+### .iliasignore
 
-Run the same command again **without** `-f`. Only newly added files will be downloaded.
-
----
-
-## Options (quick reference)
-
-| Option | What it does |
-|--------|-------------|
-| `-o <folder>` | **Required.** Where to save downloaded files. |
-| `--no-videos` | Skip Opencast lecture videos. |
-| `-f` | Re-download files even if they already exist. |
-| `--desktop` | Download dashboard favourites only (not all courses). |
-| `--sync-url <url>` | Download one specific ILIAS page and its contents. |
-| `-t` / `--forum` | Also download forum posts. |
-| `-v` / `-vv` | Show more details while running. |
-| `--debug-html` | Save web pages for troubleshooting (`<output>/.debug/`). |
-| `-U <username>` | Provide KIT username on the command line. |
-| `-h` | Show all available options. |
-
----
-
-## How updated files are handled
-
-| Situation | What happens |
-|-----------|-------------|
-| New file with a **new name** | Downloaded on the next run. |
-| Professor **replaces** a file (same name) | **Not** updated automatically — use `-f`. |
-| File removed from ILIAS | Stays on your computer. |
-
----
-
-## Troubleshooting
-
-### "Logged in!" but no files downloaded
-
-- Check that you are enrolled in courses on ILIAS.
-- Run with `-vv` for details: `./KIT-ILIAS-downloader -o ~/Downloads/ilias -vv --no-videos`
-- Add `--debug-html` and inspect the `.debug/` folder in your output directory.
-
-### "no SAML response, incorrect password?"
-
-Your KIT password was wrong. Run again and type it carefully (same password as the ILIAS website).
-
-### Downloaded files have no file extension
-
-Update to the latest release on the **`main`** branch, delete the broken files, and run again with `-f`.
-
----
-
-## Advanced
-
-### Filter courses with `.iliasignore`
-
-Create `.iliasignore` in your output folder:
+`.gitignore` syntax can be used in a `.iliasignore` file (located in the output directory):
 
 ```ignore
-# Only download one course:
+# example 1: only download a single course
 /*/
-!/My Course Name/
+!/InsertCourseHere/
+# example 2: only download files related to one tutorial
+/Course/Tutorien/*/
+!/Course/Tutorien/Tut* 3/
 ```
 
-### Shorter folder names with `course_names.toml`
+### Credentials
 
-Create `course_names.toml` in your output folder:
+By default, the program asks for your KIT username and password in the terminal when it starts.
+
+You can also pass them on the command line:
+
+```bash
+./target/release/KIT-ILIAS-downloader -U uabcd -P 'your-password' -o ~/Downloads/ilias --no-videos
+```
+
+With `--keyring`, the password can be read from the system password store:
+
+```bash
+./target/release/KIT-ILIAS-downloader -U uabcd --keyring -o ~/Downloads/ilias --no-videos
+```
+
+If you use [pass](https://www.passwordstore.org/), use `--pass-path`:
+
+```bash
+./target/release/KIT-ILIAS-downloader -U uabcd --pass-path edu/kit/uskyk -o ~/Downloads/ilias --no-videos
+```
+
+When running the downloader multiple times in a short period of time, you may want to use the `--keep-session` flag.
+If specified, the downloader will save and restore session cookies (`.iliassession` file in the output directory).
+
+### Renaming course names
+
+If you'd like to avoid unwieldy course names (e.g. "24030 – Programmierparadigmen"), you can create a `course_names.toml` file in the output directory:
 
 ```toml
 "24030 – Programmierparadigmen" = "ProPa"
+"Numerische Mathematik  für die Fachrichtungen Informatik und Ingenieurwesen" = "Numerik"
 ```
 
----
+## Troubleshooting
 
-## Credits
+### "no SAML response, incorrect password?"
 
-Based on [KIT-ILIAS-downloader](https://github.com/FliegendeWurst/KIT-ILIAS-downloader) by FliegendeWurst.  
-Updated for ILIAS 9 compatibility.
+Your KIT password was wrong. Run the program again and enter the correct password.
 
-## License
+### "Logged in!" but no files are downloaded
 
-GPL-3.0-or-later — see [LICENSE](LICENSE).
+Run with verbose logging:
+
+```bash
+./target/release/KIT-ILIAS-downloader -o ~/Downloads/ilias -vv --no-videos
+```
+
+If a folder stays empty, try `--debug-html` and inspect `<output>/.debug/`.
+
+### Error when using `--keyring` option
+
+If you get a keyring / DBus error on Linux, make sure your system keyring service (KeePassXC, GNOME Keyring, ...) is running.
+
+## Other useful programs
+
+- https://github.com/Garmelon/PFERD
+- https://github.com/DeOldSax/iliasDownloaderTool
+- https://github.com/brantsch/kit-ilias-fuse
+- https://github.com/Mr-Pine/IliasUploaderUtility (unlike the other tools, this one uploads files)
+- https://github.com/I-Al-Istannen/ilias-tests (unlike the other tools, this one processes "tests")
+
