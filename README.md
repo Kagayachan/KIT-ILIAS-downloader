@@ -144,14 +144,6 @@ Use `--sync-url` with a link copied from an ILIAS page (right-click a link insid
   --no-videos
 ```
 
-### Re-download updated files
-
-By default, existing local files are skipped. To overwrite them (e.g. professor uploaded a new version of the same file):
-
-```bash
-./target/release/KIT-ILIAS-downloader -o ~/Downloads/ilias -f --no-videos
-```
-
 ### Options
 
 ```
@@ -227,34 +219,8 @@ If you use [pass](https://www.passwordstore.org/), use `--pass-path`:
 When running the downloader multiple times in a short period of time, you may want to use the `--keep-session` flag.
 If specified, the downloader will save and restore session cookies (`.iliassession` file in the output directory).
 
-### Renaming course names
 
-If you'd like to avoid unwieldy course names (e.g. "24030 – Programmierparadigmen"), you can create a `course_names.toml` file in the output directory:
 
-```toml
-"24030 – Programmierparadigmen" = "ProPa"
-"Numerische Mathematik  für die Fachrichtungen Informatik und Ingenieurwesen" = "Numerik"
-```
-
-## Troubleshooting
-
-### "no SAML response, incorrect password?"
-
-Your KIT password was wrong. Run the program again and enter the correct password.
-
-### "Logged in!" but no files are downloaded
-
-Run with verbose logging:
-
-```bash
-./target/release/KIT-ILIAS-downloader -o ~/Downloads/ilias -vv --no-videos
-```
-
-If a folder stays empty, try `--debug-html` and inspect `<output>/.debug/`.
-
-### Error when using `--keyring` option
-
-If you get a keyring / DBus error on Linux, make sure your system keyring service (KeePassXC, GNOME Keyring, ...) is running.
 
 ## Other useful programs
 
