@@ -1,9 +1,8 @@
 # KIT-ILIAS-downloader
 
-> [!Warning]
-> The program no longer works since the upgrade to ILIAS 9: https://github.com/FliegendeWurst/KIT-ILIAS-downloader/issues/63
-> 
-> Meanwhile you can use the more complicated [PFERD](https://github.com/Garmelon/PFERD), or step up to maintain this downloader :)
+Bulk download script for Ilias9
+
+## What does it download?
 
 Download content from ILIAS. That includes:
 
@@ -42,6 +41,54 @@ Use the `--sync-url` option to download a specific page and its sub-pages: (the 
 ```
 $ KIT-ILIAS-downloader -o ./ILIAS/WS2021-HM1 --sync-url 'https://ilias.studium.kit.edu/ilias.php?ref_id=1276968&cmdClass=ilrepositorygui&cmdNode=uk&baseClass=ilRepositoryGUI'
 ```
+
+## Common tasks
+
+### Download only slides and documents (no videos)
+
+Add `--no-videos` (shown in the example above). This is the fastest option.
+
+### Also download lecture videos
+
+Remove `--no-videos` from the command:
+
+```
+./KIT-ILIAS-downloader -o ~/Downloads/ilias
+```
+
+Videos are large and take much longer.
+
+### Download only your dashboard favourites (not all courses)
+
+Add `--desktop`:
+
+```
+./KIT-ILIAS-downloader -o ~/Downloads/ilias --desktop --no-videos
+```
+
+### Download one specific course
+
+1. Open the course in ILIAS in your browser.
+2. Right-click any link **inside** the course (not the browser address bar) → **Copy link address**.
+3. Run:
+
+```
+./KIT-ILIAS-downloader -o ~/Downloads/ilias --sync-url "PASTE_THE_LINK_HERE" --no-videos
+```
+
+### Get updated files (professor uploaded new slides)
+
+The program **skips files that already exist** on your computer. To re-download everything (including updated files), add `-f`:
+
+```
+./KIT-ILIAS-downloader -o ~/Downloads/ilias -f --no-videos
+```
+
+### Download only new files (skip existing ones)
+
+Just run the same command again **without** `-f`. Only new files will be downloaded.
+
+---
 
 ### Options
 
