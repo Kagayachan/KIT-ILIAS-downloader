@@ -9,13 +9,13 @@ Download content from ILIAS. That includes:
 * Opencast lectures
 * forum posts
 
-> Make sure you use the **`main`** branch of this repository (not `master` or other branches).
+> Make sure you use the **`main`** branch of this repository.
 
 ## Installation
 
 All steps below are done in a **terminal** (Terminal on macOS, PowerShell or Command Prompt on Windows).
 
-### Option A: Clone and build (recommended)
+### Option A: Clone and build 
 
 **macOS / Linux:**
 
@@ -43,7 +43,7 @@ If you do not have Rust yet, install it from https://www.rust-lang.org/tools/ins
 
 Go to [releases](../../releases), or download directly (replace the URL with the file for your system):
 
-**macOS (Apple Silicon):**
+**macOS:**
 
 ```bash
 curl -L -o kit-ilias.tar.gz \
@@ -51,16 +51,6 @@ curl -L -o kit-ilias.tar.gz \
 tar -xzf kit-ilias.tar.gz
 chmod +x KIT-ILIAS-downloader
 ```
-
-**macOS (Intel):**
-
-```bash
-curl -L -o kit-ilias.tar.gz \
-  https://github.com/kagayachan/KIT-ILIAS-downloader/releases/latest/download/KIT-ILIAS-downloader-x86_64-apple-darwin.tar.gz
-tar -xzf kit-ilias.tar.gz
-chmod +x KIT-ILIAS-downloader
-```
-
 **Linux:**
 
 ```bash
@@ -126,8 +116,6 @@ Writing 2311616 – Communication Systems and Protocols (SS 2026)/CSP_SS2026_Ses
 done
 ```
 
-Remove `--no-videos` if you also want Opencast lecture videos (large and slow).
-
 ### Download only dashboard favourites
 
 ```bash
@@ -164,7 +152,7 @@ FLAGS:
     -h, --help                Prints help information
         --keep-session        Attempt to re-use session cookies
         --keyring             Use the system keyring
-    -n, --no-videos           Do not download Opencast videos
+    -n, --no-videos           Do not download Opencast videos，which can make task faster
         --save-ilias-pages    Save overview pages of ILIAS courses and folders
     -s, --skip-files          Do not download files
     -V, --version             Prints version information
