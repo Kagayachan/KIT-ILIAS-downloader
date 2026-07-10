@@ -41,32 +41,8 @@ If you do not have Rust yet, install it from https://www.rust-lang.org/tools/ins
 
 ### Option B: Download a release binary from the terminal
 
-Go to [releases](../../releases), or download directly (replace the URL with the file for your system):
+Go to [releases](../../releases), and download directly the executable file for your operating system.:
 
-**macOS:**
-
-```bash
-curl -L -o kit-ilias.tar.gz \
-  https://github.com/kagayachan/KIT-ILIAS-downloader/releases/latest/download/KIT-ILIAS-downloader-aarch64-apple-darwin.tar.gz
-tar -xzf kit-ilias.tar.gz
-chmod +x KIT-ILIAS-downloader
-```
-**Linux:**
-
-```bash
-curl -L -o kit-ilias.tar.gz \
-  https://github.com/kagayachan/KIT-ILIAS-downloader/releases/latest/download/KIT-ILIAS-downloader-x86_64-unknown-linux-gnu.tar.gz
-tar -xzf kit-ilias.tar.gz
-chmod +x KIT-ILIAS-downloader
-```
-
-**Windows (PowerShell):**
-
-```powershell
-curl -L -o kit-ilias.zip `
-  https://github.com/kagayachan/KIT-ILIAS-downloader/releases/latest/download/KIT-ILIAS-downloader-x86_64-pc-windows-msvc.zip
-Expand-Archive -Path kit-ilias.zip -DestinationPath . -Force
-```
 
 ## Usage
 
