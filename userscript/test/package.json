@@ -1,0 +1,11 @@
+{
+  "name": "kit-ilias-downloader-userscript-tests",
+  "private": true,
+  "description": "Offline tests for the parsing logic of the ILIAS bulk download userscript",
+  "scripts": {
+    "test": "node run-tests.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}

@@ -20,3 +20,7 @@ course_names.toml
 # Logs
 *.log
 download.log
+
+# Userscript test dependencies
+userscript/test/node_modules/
+userscript/test/package-lock.json
