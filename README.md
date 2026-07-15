@@ -183,6 +183,65 @@ If you use [pass](https://www.passwordstore.org/), use `--pass-path`:
 When running the downloader multiple times in a short period of time, you may want to use the `--keep-session` flag.
 If specified, the downloader will save and restore session cookies (`.iliassession` file in the output directory).
 
+## Mobile (iPad / Android): userscript
+
+The CLI cannot run on phones or tablets. For iPad and Android there is a **userscript** in
+[`userscript/kit-ilias-downloader.user.js`](userscript/kit-ilias-downloader.user.js) that runs inside your browser,
+reuses your existing ILIAS login session (no password handling needed) and downloads files as a **single ZIP**
+(directory structure preserved).
+
+### Installation
+
+| Platform | Browser | Userscript manager |
+|---|---|---|
+| Android | Firefox | [Tampermonkey](https://addons.mozilla.org/firefox/addon/tampermonkey/) or [Violentmonkey](https://addons.mozilla.org/firefox/addon/violentmonkey/) |
+| iPad / iPhone | Safari | [Userscripts](https://apps.apple.com/app/userscripts/id1463298887) (App Store) |
+| Desktop | any | Tampermonkey / Violentmonkey |
+
+1. Install the userscript manager for your platform (table above).
+2. Open the raw file `userscript/kit-ilias-downloader.user.js` from this repository — the manager will offer to install it.
+   (With the iOS Userscripts app, save the file into the app's scripts folder instead.)
+3. Log into [ILIAS](https://ilias.studium.kit.edu/) in the same browser.
+
+### Usage
+
+1. Navigate to the ILIAS page you want to download (a course, a folder, or the dashboard).
+2. Tap the green **"ILIAS ↓"** button in the bottom-right corner.
+3. Choose the scope:
+   * **Current page (recursive)** – everything below the course/folder you are looking at
+   * **Dashboard favourites** – same as the CLI's `--desktop`
+   * **All courses** – same as the CLI's default (membership overview)
+4. Tap **Download as ZIP**. Progress (pages crawled, files fetched, total size) is shown live;
+   when finished, the browser saves one `.zip` file (on iOS it lands in *Files*, on Android in *Downloads*).
+
+### Limitations
+
+* The whole ZIP is assembled **in memory** — fine for lecture notes and exercise sheets, but
+  Opencast videos are **skipped by default**. The "Include Opencast videos" switch exists, but expect
+  high memory usage on mobile devices; prefer the CLI for full video mirrors.
+* Forums, wikis, surveys and interactive presentations are counted as "skipped" (use the CLI for those).
+* Keep the browser tab in the foreground while it runs — mobile browsers pause background tabs.
+* Downloads are rate-limited (default 20 requests/minute, like the CLI's `--rate`) to avoid stressing ILIAS.
+* If ILIAS logs you out mid-run, the script stops with a "session expired" error — reload, log in and retry.
+
+### Manual test checklist (after changing the script)
+
+Since crawling requires a real KIT account, test manually in a logged-in browser, in this order:
+
+1. a small folder ("Current page" scope) — check ZIP contents and file extensions,
+2. a whole course — check nested folder structure and session/`expand` handling,
+3. "Dashboard favourites" and "All courses" scopes,
+4. optional: one course with "Include Opencast videos" enabled (desktop browser recommended).
+
+Offline unit tests for the parsing logic (no account needed):
+
+```bash
+cd userscript/test
+npm install
+npm test            # parsing/selector tests against saved HTML fixtures
+node zip-smoke.js   # verifies ZIP generation with the bundled fflate
+```
+
 
 
 
