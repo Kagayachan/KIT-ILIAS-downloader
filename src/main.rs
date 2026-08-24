@@ -81,7 +81,7 @@ async fn login(opt: Opt, ignore: IliasIgnore, course_names: HashMap<String, Stri
 		}
 	}
 
-	// load credentials from CLI flags or terminal prompt (never from .iliaslogin)
+	// load credentials from CLI flags or terminal prompt
 	let (user, pass) = ask_user_pass(&opt).context("credentials input failed")?;
 
 	let ilias = match ILIAS::login(opt, &user, &pass, ignore, course_names).await {

@@ -1,5 +1,7 @@
-use futures::Future;
-use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
+use futures::{
+	channel::mpsc::{UnboundedReceiver, UnboundedSender},
+	Future,
+};
 use once_cell::sync::{Lazy, OnceCell};
 use tokio::{
 	sync::{Semaphore, SemaphorePermit},
@@ -35,7 +37,7 @@ pub fn set_download_rate(rate: usize) {
 }
 
 pub fn set_parallel_jobs(jobs: usize) -> UnboundedReceiver<JoinHandle<()>> {
-	let (tx, rx) = futures_channel::mpsc::unbounded::<JoinHandle<()>>();
+	let (tx, rx) = futures::channel::mpsc::unbounded::<JoinHandle<()>>();
 	TASKS.get_or_init(|| tx.clone());
 	TASKS_RUNNING.add_permits(jobs);
 	rx

@@ -90,10 +90,6 @@ pub struct Opt {
 	#[structopt(long)]
 	pub keep_session: bool,
 
-	/// Download all courses (default unless --sync-url is set)
-	#[structopt(long)]
-	pub all: bool,
-
 	/// Download only dashboard favourites instead of all courses
 	#[structopt(long)]
 	pub desktop: bool,

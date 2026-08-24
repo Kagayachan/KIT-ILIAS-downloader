@@ -7,16 +7,11 @@ name = "KIT-ILIAS-downloader"
 version = "0.3.9"
 dependencies = [
  "anyhow",
- "async-recursion",
  "atty",
  "bytes",
- "cfg-if",
  "colored",
  "cookie_store",
- "ego-tree",
  "futures",
- "futures-channel",
- "futures-util",
  "h2",
  "ignore",
  "indicatif",
@@ -128,17 +123,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "287272293e9d8c41773cec55e365490fe034813a2f172f502d6ddcf75b2f582b"
 dependencies = [
  "event-listener",
-]
-
-[[package]]
-name = "async-recursion"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b43422f69d8ff38f95f1b2bb76517c91589a924d1559a0e935d7c8ce0274c11"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.99",
 ]
 
 [[package]]

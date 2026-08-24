@@ -1,7 +1,6 @@
 use std::{collections::HashSet, path::Path, sync::Arc};
 
 use anyhow::{Context, Result};
-use async_recursion::async_recursion;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -15,7 +14,6 @@ use super::{ILIAS, URL};
 
 static EXPAND_LINK: Lazy<Regex> = Lazy::new(|| Regex::new("expand=\\d").unwrap());
 
-#[async_recursion]
 pub async fn download(path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 	let content = ilias.get_course_content(url).await?;
 
@@ -23,7 +21,7 @@ pub async fn download(path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 	for href in content.2 {
 		// link format: ilias.php?ref_id=1943526&expand=2602906&cmd=view&cmdClass=ilobjfoldergui&cmdNode=x1:nk&baseClass=ilrepositorygui#lg_div_1948579_pref_1943526
 		if EXPAND_LINK.is_match(&href) {
-			return download(path, ilias, &URL::from_href(&href)?).await;
+			return Box::pin(download(path, ilias, &URL::from_href(&href)?)).await;
 		}
 	}
 

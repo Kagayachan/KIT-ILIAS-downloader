@@ -11,9 +11,8 @@ use crate::{
 	util::{file_escape, wrap_html, write_file_data},
 };
 
-use super::{Object, ILIAS, URL};
+use super::{Object, ILIAS, LINKS, URL};
 
-static LINKS: Lazy<Selector> = Lazy::new(|| Selector::parse("a").unwrap());
 static IMAGES: Lazy<Selector> = Lazy::new(|| Selector::parse("img").unwrap());
 static TABLES: Lazy<Selector> = Lazy::new(|| Selector::parse("table").unwrap());
 static LINK_IN_TABLE: Lazy<Selector> = Lazy::new(|| Selector::parse("tbody tr td a").unwrap());

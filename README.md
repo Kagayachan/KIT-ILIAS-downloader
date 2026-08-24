@@ -117,7 +117,6 @@ USAGE:
     KIT-ILIAS-downloader [FLAGS] [OPTIONS] --output <output>
 
 FLAGS:
-        --all                 Download all courses (default when --sync-url is not set)
         --check-videos        Re-check OpenCast lectures (slow)
         --combine-videos      Combine videos if there is more than one stream (requires ffmpeg)
         --content-tree        Use content tree (experimental)

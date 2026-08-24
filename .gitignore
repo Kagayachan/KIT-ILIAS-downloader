@@ -12,7 +12,6 @@ target/
 Thumbs.db
 
 # ILIAS runtime files (may appear in output dir or project root)
-.iliaslogin
 .iliassession
 course_names.toml
 .debug/

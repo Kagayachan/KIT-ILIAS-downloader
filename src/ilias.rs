@@ -23,7 +23,7 @@ pub mod thread;
 pub mod video;
 pub mod weblink;
 
-static LINKS: Lazy<Selector> = Lazy::new(|| Selector::parse("a").unwrap());
+pub(crate) static LINKS: Lazy<Selector> = Lazy::new(|| Selector::parse("a").unwrap());
 static ALERT_DANGER: Lazy<Selector> = Lazy::new(|| Selector::parse("div.alert-danger, .il_ItemAlertProperty").unwrap());
 static IL_CONTENT_CONTAINER: Lazy<Selector> = Lazy::new(|| Selector::parse("#il_center_col, #ilContentContainer").unwrap());
 static BLOCK_FAVORITES: Lazy<Selector> = Lazy::new(|| Selector::parse("#block_pditems_0").unwrap());
@@ -64,23 +64,23 @@ fn error_is_http2(error: &reqwest::Error) -> bool {
 }
 
 impl ILIAS {
-	// TODO: de-duplicate the logic below
+	fn build_client(cookies: Arc<CookieStoreMutex>, proxy: Option<&str>) -> Result<Client> {
+		let mut builder = Client::builder()
+			.cookie_provider(Arc::clone(&cookies))
+			.user_agent(concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")));
+		if let Some(proxy) = proxy {
+			builder = builder.proxy(Proxy::all(proxy)?);
+		}
+		Ok(builder.build()?)
+	}
+
 	pub async fn with_session(
 		opt: Opt,
 		session: Arc<CookieStoreMutex>,
 		ignore: IliasIgnore,
 		course_names: HashMap<String, String>,
 	) -> Result<Self> {
-		let mut builder = Client::builder()
-			.cookie_provider(Arc::clone(&session))
-			.user_agent(concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")));
-		if let Some(proxy) = opt.proxy.as_ref() {
-			let proxy = Proxy::all(proxy)?;
-			builder = builder.proxy(proxy);
-		}
-		let client = builder
-			// timeout is infinite by default
-			.build()?;
+		let client = Self::build_client(Arc::clone(&session), opt.proxy.as_deref())?;
 		info!("Re-using previous session cookies..");
 		Ok(ILIAS {
 			opt,
@@ -101,16 +101,7 @@ impl ILIAS {
 		let cookie_store = CookieStore::default();
 		let cookie_store = reqwest_cookie_store::CookieStoreMutex::new(cookie_store);
 		let cookie_store = std::sync::Arc::new(cookie_store);
-		let mut builder = Client::builder()
-			.cookie_provider(Arc::clone(&cookie_store))
-			.user_agent(concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")));
-		if let Some(proxy) = opt.proxy.as_ref() {
-			let proxy = Proxy::all(proxy)?;
-			builder = builder.proxy(proxy);
-		}
-		let client = builder
-			// timeout is infinite by default
-			.build()?;
+		let client = Self::build_client(Arc::clone(&cookie_store), opt.proxy.as_deref())?;
 		let this = ILIAS {
 			opt,
 			ignore,

@@ -6,9 +6,8 @@ use scraper::Selector;
 
 use crate::{process_gracefully, queue::spawn, util::file_escape};
 
-use super::{Object, ILIAS, URL};
+use super::{Object, ILIAS, LINKS, URL};
 
-static LINKS: Lazy<Selector> = Lazy::new(|| Selector::parse("a").unwrap());
 static FORM_GROUP: Lazy<Selector> = Lazy::new(|| Selector::parse(".form-group").unwrap());
 static FORM_NAME: Lazy<Selector> = Lazy::new(|| Selector::parse(".il_InfoScreenProperty").unwrap());
 

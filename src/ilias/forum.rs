@@ -6,9 +6,8 @@ use scraper::{Html, Selector};
 
 use crate::{ilias::Object, process_gracefully, queue::spawn, util::file_escape};
 
-use super::{ILIAS, URL};
+use super::{ILIAS, LINKS, URL};
 
-static LINKS: Lazy<Selector> = Lazy::new(|| Selector::parse("a").unwrap());
 static TABLE_HEADER: Lazy<Selector> = Lazy::new(|| Selector::parse("th").unwrap());
 static TABLE_ROW: Lazy<Selector> = Lazy::new(|| Selector::parse("tr").unwrap());
 static TABLE_CELLS: Lazy<Selector> = Lazy::new(|| Selector::parse("td").unwrap());

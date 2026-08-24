@@ -1,8 +1,6 @@
 use std::{path::Path, sync::Arc};
 
 use anyhow::{Context, Result};
-use once_cell::sync::Lazy;
-use scraper::Selector;
 use tokio::fs;
 
 use crate::{
@@ -10,9 +8,7 @@ use crate::{
 	ILIAS_URL,
 };
 
-use super::{ILIAS, URL};
-
-static LINKS: Lazy<Selector> = Lazy::new(|| Selector::parse("a").unwrap());
+use super::{ILIAS, LINKS, URL};
 
 pub async fn download(path: &Path, relative_path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 	if !ilias.opt.force && fs::metadata(&path).await.is_ok() {
