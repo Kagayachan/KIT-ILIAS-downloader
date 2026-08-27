@@ -51,6 +51,16 @@ pub struct ILIAS {
 	pub course_names: HashMap<String, String>,
 }
 
+/// Everything one course/folder page is scraped for, in a single pass.
+struct ContentPage {
+	items: Vec<Result<Object>>,
+	main_text: Option<String>,
+	links: Vec<String>,
+	debug_save: Option<(String, String)>,
+	/// Set when the items live on a content tab that has not been fetched yet.
+	content_tab: Option<String>,
+}
+
 /// Returns true if the error is caused by:
 /// "http2 error: protocol error: not a result of an error"
 fn error_is_http2(error: &reqwest::Error) -> bool {
@@ -399,56 +409,62 @@ impl ILIAS {
 		}
 	}
 
-	async fn resolve_page_url(&self, start_url: &str) -> Result<String> {
-		let html = self.get_html(start_url).await?;
-		if let Some(content_url) = Self::content_tab_url(&html, start_url) {
-			log!(1, "Selecting content tab for {}", start_url);
-			Ok(content_url)
+	/// Fetch one page and pull everything needed out of it in a single parse. `scraper::Html` is
+	/// not `Send`, so nothing may be carried past the next `.await` — hence the owned fields.
+	async fn scrape_content_page(&self, page_url: &str) -> Result<ContentPage> {
+		let html = self.get_html(page_url).await?;
+
+		let content_tab = Self::content_tab_url(&html, page_url);
+		let main_text = if let Some(el) = html.select(&IL_CONTENT_CONTAINER).next() {
+			if let Some(el) = el.select(&BLOCK_FAVORITES).next().or_else(|| el.select(&BLOCK_DASH_FAV).next()) {
+				Some(wrap_html(&el.inner_html()))
+			} else {
+				Some(wrap_html(&el.inner_html()))
+			}
 		} else {
-			Ok(start_url.to_owned())
-		}
+			None
+		};
+		let items = ILIAS::get_items(&html, page_url);
+		let links: Vec<String> = html
+			.select(&LINKS)
+			.flat_map(|x| x.value().attr("href").map(|x| x.to_owned()))
+			.collect();
+		let debug_save = if self.opt.debug_html && items.iter().all(|item| item.is_err()) {
+			let slug = page_url
+				.rsplit('/')
+				.next()
+				.unwrap_or("page")
+				.chars()
+				.take(80)
+				.collect::<String>();
+			Some((slug, html.html()))
+		} else {
+			None
+		};
+		Ok(ContentPage {
+			items,
+			main_text,
+			links,
+			debug_save,
+			content_tab,
+		})
 	}
 
 	/// Returns subfolders, the main text in a course/folder/personal desktop and all links on the page.
 	pub async fn get_course_content(&self, url: &URL) -> Result<(Vec<Result<Object>>, Option<String>, Vec<String>)> {
-		let page_url = self.resolve_page_url(&url.url).await?;
-		let (items, main_text, links, debug_save) = {
-			let html = self.get_html(&page_url).await?;
-
-			let main_text = if let Some(el) = html.select(&IL_CONTENT_CONTAINER).next() {
-				if let Some(el) = el.select(&BLOCK_FAVORITES).next().or_else(|| el.select(&BLOCK_DASH_FAV).next()) {
-					Some(wrap_html(&el.inner_html()))
-				} else {
-					Some(wrap_html(&el.inner_html()))
-				}
-			} else {
-				None
-			};
-			let items = ILIAS::get_items(&html, &page_url);
-			let links: Vec<String> = html
-				.select(&LINKS)
-				.flat_map(|x| x.value().attr("href").map(|x| x.to_owned()))
-				.collect();
-			let debug_save = if self.opt.debug_html && items.iter().all(|item| item.is_err()) {
-				let slug = page_url
-					.rsplit('/')
-					.next()
-					.unwrap_or("page")
-					.chars()
-					.take(80)
-					.collect::<String>();
-				Some((slug, html.html()))
-			} else {
-				None
-			};
-			(items, main_text, links, debug_save)
-		};
-		if let Some((slug, html_text)) = debug_save {
+		// The page fetched here is usually already the one holding the items, so scrape it right
+		// away. Only when the items live on a content tab we are not on is a second request needed.
+		let mut page = self.scrape_content_page(&url.url).await?;
+		if let Some(content_url) = page.content_tab.take() {
+			log!(1, "Selecting content tab for {}", url.url);
+			page = self.scrape_content_page(&content_url).await?;
+		}
+		if let Some((slug, html_text)) = page.debug_save {
 			if let Err(e) = save_debug_html(&self.opt.output, &slug, &html_text).await {
 				warning!(e);
 			}
 		}
-		Ok((items, main_text, links))
+		Ok((page.items, page.main_text, page.links))
 	}
 
 	pub async fn get_course_content_tree(&self, ref_id: &str, cmd_node: &str) -> Result<Vec<Object>> {
@@ -766,5 +782,30 @@ impl URL {
 			ref_id,
 			target,
 		})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// `content_tab_url` decides whether `get_course_content` needs a second request:
+	/// `None` means the page just fetched already holds the items.
+	#[test]
+	fn content_tab_is_only_followed_when_not_already_on_it() {
+		let no_tab = Html::parse_document(r#"<div id="ilContentContainer">items</div>"#);
+		assert_eq!(ILIAS::content_tab_url(&no_tab, "ilias.php?ref_id=1"), None);
+
+		let active = Html::parse_document(
+			r#"<li id="tab_view_content" class="active"><a href="ilias.php?cmd=view">Inhalt</a></li>"#,
+		);
+		assert_eq!(ILIAS::content_tab_url(&active, "ilias.php?ref_id=1"), None);
+
+		let inactive =
+			Html::parse_document(r#"<li id="tab_view_content"><a href="ilias.php?cmd=view&ref_id=1">Inhalt</a></li>"#);
+		assert_eq!(
+			ILIAS::content_tab_url(&inactive, "ilias.php?ref_id=1").as_deref(),
+			Some("https://ilias.studium.kit.edu/ilias.php?cmd=view&ref_id=1")
+		);
 	}
 }

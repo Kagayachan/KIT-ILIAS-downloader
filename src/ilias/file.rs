@@ -60,6 +60,14 @@ pub async fn download(path: &Path, relative_path: &Path, ilias: Arc<ILIAS>, url:
 	if ilias.opt.skip_files {
 		return Ok(());
 	}
+	// The response below is only needed to pick an extension, and `path_with_extension` is the
+	// identity once the path has one — so for those the check further down can run up here, before
+	// the request. Every request skipped is one --rate slot, i.e. 7.5s at the default of 8/min.
+	// Paths without an extension still need the response to know the final name, and fall through.
+	if !ilias.opt.force && path.extension().is_some() && fs::metadata(path).await.is_ok() {
+		log!(2, "Skipping download, file exists already");
+		return Ok(());
+	}
 	let data = ilias.download(&url.url).await?;
 	let path = path_with_extension(path, &data);
 	let relative_path = if path.extension().is_some() && relative_path.extension().is_none() {
