@@ -2,22 +2,22 @@
 
 **Language / Sprache:** [English](README.md) | [Deutsch](README.de.md)
 
-Bulk download script for **ILIAS 9** (KIT ILIAS).
+Bulk-Download-Skript für **ILIAS 9** (KIT ILIAS).
 
-Download content from ILIAS. That includes:
+Inhalte aus ILIAS herunterladen. Dazu gehören:
 
-* files
-* exercise sheets and solutions
-* Opencast lectures
-* forum posts
+* Dateien
+* Übungsblätter und Lösungen
+* Opencast-Vorlesungen
+* Forenbeiträge
 
-> Make sure you use the **`main`** branch of this repository.
+> Stelle sicher, dass du den Branch **`main`** dieses Repositories verwendest.
 
 ## Installation
 
-All steps below are done in a **terminal** (Terminal on macOS, PowerShell or Command Prompt on Windows).
+Alle folgenden Schritte erfolgen in einem **Terminal** (Terminal unter macOS, PowerShell oder Eingabeaufforderung unter Windows).
 
-### Option A: Clone and build 
+### Option A: Klonen und bauen
 
 **macOS / Linux:**
 
@@ -27,7 +27,7 @@ cd KIT-ILIAS-downloader
 cargo build --release
 ```
 
-The program is at `./target/release/KIT-ILIAS-downloader`.
+Das Programm befindet sich unter `./target/release/KIT-ILIAS-downloader`.
 
 **Windows (PowerShell):**
 
@@ -37,50 +37,50 @@ cd KIT-ILIAS-downloader
 cargo build --release
 ```
 
-The program is at `.\target\release\KIT-ILIAS-downloader.exe`.
+Das Programm befindet sich unter `.\target\release\KIT-ILIAS-downloader.exe`.
 
-If you do not have Rust yet, install it from https://www.rust-lang.org/tools/install first.
+Falls Rust noch nicht installiert ist, installiere es zuerst unter https://www.rust-lang.org/tools/install.
 
-### Option B: Download a release binary from the terminal
+### Option B: Release-Binary über das Terminal herunterladen
 
-Go to [releases](../../releases), and download directly the executable file for your operating system.:
+Öffne die [Releases](../../releases) und lade die ausführbare Datei für dein Betriebssystem herunter.
 
 
-## Usage
+## Verwendung
 
-Open a terminal. Navigate to the directory that contains the binary (or use the path from `cargo build`).
+Öffne ein Terminal. Wechsle in das Verzeichnis mit der Binary (oder verwende den Pfad aus `cargo build`).
 
-### batch download (all courses)
+### Batch-Download (alle Kurse)
 
-This downloads **all courses you are enrolled in** into one folder. You will be asked for your KIT username and password in the terminal.
+Lädt **alle Kurse, in denen du eingeschrieben bist**, in einen Ordner herunter. Im Terminal wirst du nach KIT-Benutzername und Passwort gefragt.
 
-**macOS / Linux** (after `git clone` + `cargo build`):
+**macOS / Linux** (nach `git clone` + `cargo build`):
 
 ```bash
 cd KIT-ILIAS-downloader
 ./target/release/KIT-ILIAS-downloader -o ~/Downloads/ilias --no-videos
 ```
 
-**macOS / Linux** (after downloading a release tarball):
+**macOS / Linux** (nach dem Herunterladen eines Release-Tarballs):
 
 ```bash
 ./KIT-ILIAS-downloader -o ~/Downloads/ilias --no-videos
 ```
 
-**Windows (PowerShell)** (after `git clone` + `cargo build`):
+**Windows (PowerShell)** (nach `git clone` + `cargo build`):
 
 ```powershell
 cd KIT-ILIAS-downloader
 .\target\release\KIT-ILIAS-downloader.exe -o $env:USERPROFILE\Downloads\ilias --no-videos
 ```
 
-**Windows (PowerShell)** (after downloading a release zip):
+**Windows (PowerShell)** (nach dem Herunterladen eines Release-ZIPs):
 
 ```powershell
 .\KIT-ILIAS-downloader.exe -o $env:USERPROFILE\Downloads\ilias --no-videos
 ```
 
-Example output:
+Beispielausgabe:
 
 ```
 KIT account username: uabcd
@@ -94,15 +94,15 @@ Writing 2311616 – Communication Systems and Protocols (SS 2026)/CSP_SS2026_Ses
 done
 ```
 
-### Download only dashboard favourites
+### Nur Dashboard-Favoriten herunterladen
 
 ```bash
 ./target/release/KIT-ILIAS-downloader -o ~/Downloads/ilias --desktop --no-videos
 ```
 
-### Download a specific course or folder
+### Einen bestimmten Kurs oder Ordner herunterladen
 
-Use `--sync-url` with a link copied from an ILIAS page (right-click a link inside ILIAS → copy link address, **not** the browser address bar):
+Verwende `--sync-url` mit einem Link von einer ILIAS-Seite (Rechtsklick auf einen Link in ILIAS → Link-Adresse kopieren, **nicht** die Adresszeile des Browsers):
 
 ```bash
 ./target/release/KIT-ILIAS-downloader -o ~/Downloads/ilias/ProPa \
@@ -110,7 +110,7 @@ Use `--sync-url` with a link copied from an ILIAS page (right-click a link insid
   --no-videos
 ```
 
-### Options
+### Optionen
 
 ```
 KIT-ILIAS-downloader 0.3.9
@@ -148,50 +148,49 @@ OPTIONS:
 
 ### .iliasignore
 
-`.gitignore` syntax can be used in a `.iliasignore` file (located in the output directory):
+Die `.gitignore`-Syntax kann in einer `.iliasignore`-Datei (im Ausgabeverzeichnis) verwendet werden:
 
 ```ignore
-# example 1: only download a single course
+# Beispiel 1: nur einen einzelnen Kurs herunterladen
 /*/
 !/InsertCourseHere/
-# example 2: only download files related to one tutorial
+# Beispiel 2: nur Dateien zu einem Tutorium herunterladen
 /Course/Tutorien/*/
 !/Course/Tutorien/Tut* 3/
 ```
 
-### Credentials
+### Zugangsdaten
 
-By default, the program asks for your KIT username and password in the terminal when it starts.
+Standardmäßig fragt das Programm beim Start im Terminal nach KIT-Benutzername und Passwort.
 
-You can also pass them on the command line:
+Du kannst sie auch auf der Kommandozeile übergeben:
 
 ```bash
 ./target/release/KIT-ILIAS-downloader -U uabcd -P 'your-password' -o ~/Downloads/ilias --no-videos
 ```
 
-With `--keyring`, the password can be read from the system password store:
+Mit `--keyring` kann das Passwort aus dem System-Passwortspeicher gelesen werden:
 
 ```bash
 ./target/release/KIT-ILIAS-downloader -U uabcd --keyring -o ~/Downloads/ilias --no-videos
 ```
 
-If you use [pass](https://www.passwordstore.org/), use `--pass-path`:
+Wenn du [pass](https://www.passwordstore.org/) verwendest, nutze `--pass-path`:
 
 ```bash
 ./target/release/KIT-ILIAS-downloader -U uabcd --pass-path edu/kit/uskyk -o ~/Downloads/ilias --no-videos
 ```
 
-When running the downloader multiple times in a short period of time, you may want to use the `--keep-session` flag.
-If specified, the downloader will save and restore session cookies (`.iliassession` file in the output directory).
+Wenn du den Downloader kurz hintereinander mehrfach startest, kann die Flag `--keep-session` hilfreich sein.
+Falls angegeben, speichert und stellt der Downloader Session-Cookies wieder her (Datei `.iliassession` im Ausgabeverzeichnis).
 
 
 
 
-## Other useful programs
+## Weitere nützliche Programme
 
 - https://github.com/Garmelon/PFERD
 - https://github.com/DeOldSax/iliasDownloaderTool
 - https://github.com/brantsch/kit-ilias-fuse
-- https://github.com/Mr-Pine/IliasUploaderUtility (unlike the other tools, this one uploads files)
-- https://github.com/I-Al-Istannen/ilias-tests (unlike the other tools, this one processes "tests")
-
+- https://github.com/Mr-Pine/IliasUploaderUtility (im Gegensatz zu den anderen Tools lädt dieses Dateien hoch)
+- https://github.com/I-Al-Istannen/ilias-tests (im Gegensatz zu den anderen Tools verarbeitet dieses „Tests“)
