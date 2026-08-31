@@ -32,3 +32,11 @@ reqwest_cookie_store = "0.8"
 bytes = "1.11.1"
 toml = "0.8"
 tempfile = "3.2.0"
+
+[profile.release]
+# 9.0 MB -> 5.4 MB, no runtime trade-off. Adding opt-level = "z" takes it to 3.8 MB
+# at the cost of slower parsing, which is free here since the process spends
+# almost all of its time waiting on the --rate limiter rather than on the CPU.
+strip = true
+lto = true
+codegen-units = 1

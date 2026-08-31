@@ -188,6 +188,8 @@ async fn real_main(mut opt: Opt) -> Result<()> {
 		PROGRESS_BAR.set_style(ProgressStyle::default_bar().template("[{pos}/{len}] {wide_msg}")?);
 		PROGRESS_BAR.finish_with_message("done");
 	}
+	// requests, not bytes, are what --rate meters: one is 60/rate seconds of wall clock
+	log!(0, "Made {} requests", queue::requests_made());
 	Ok(())
 }
 
