@@ -1,6 +1,6 @@
 use std::{collections::HashSet, path::Path, sync::Arc};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -23,6 +23,7 @@ pub async fn download(path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 	// collapsed session. Run with -v to see how many a folder actually takes.
 	let mut followed: HashSet<String> = HashSet::new();
 	let mut expanded: Option<URL> = None;
+	let mut incomplete = false;
 	let content = loop {
 		let content = ilias.get_course_content(expanded.as_ref().unwrap_or(url)).await?;
 		// link format: ilias.php?ref_id=1943526&expand=2602906&cmd=view&cmdClass=ilobjfoldergui&cmdNode=x1:nk&baseClass=ilrepositorygui#lg_div_1948579_pref_1943526
@@ -39,7 +40,9 @@ pub async fn download(path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 		// ponytail: a flat cap, not a proof that ILIAS runs out of sessions; the visited set
 		// already rules out a cycle, this only bounds a pathological folder
 		if followed.len() >= MAX_EXPANSIONS {
-			warning!(format => "stopped expanding {} after {} sessions", path.display(), followed.len());
+			// keep what is already visible, but the sessions past the cap are missing, so this
+			// folder must not report success -- see the error returned at the end
+			incomplete = true;
 			break content;
 		}
 		log!(1, "Expanding session {} of {}", followed.len() + 1, path.display());
@@ -70,6 +73,15 @@ pub async fn download(path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 		let path = path.join(item_name);
 		let ilias = Arc::clone(&ilias);
 		spawn(process_gracefully(ilias, path, item));
+	}
+	if incomplete {
+		// the items above are still synced; this only stops the folder reporting success while
+		// sessions past the cap were never opened
+		return Err(anyhow!(
+			"stopped expanding {} after {} sessions, contents are incomplete",
+			path.display(),
+			MAX_EXPANSIONS
+		));
 	}
 	Ok(())
 }
