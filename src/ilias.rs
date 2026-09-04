@@ -662,6 +662,11 @@ impl Object {
 				// fancy interactive task
 				return Ok(Presentation { name, url });
 			}
+			if target.starts_with("svy_") {
+				// nothing to download; without this it falls through to the ref_id branch below
+				// and gets crawled as a folder, costing a request and leaving an empty directory
+				return Ok(Survey { name, url });
+			}
 			if target.starts_with("fold_") || target.starts_with("copa_") {
 				let ref_id = url.target.as_ref().unwrap().split('_').nth(1).unwrap();
 				url.ref_id = ref_id.to_owned();

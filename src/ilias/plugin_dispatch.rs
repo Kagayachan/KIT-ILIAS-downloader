@@ -14,7 +14,13 @@ static A_TARGET_BLANK: Lazy<Selector> = Lazy::new(|| Selector::parse(r#"a[target
 static VIDEO_ROWS: Lazy<Selector> = Lazy::new(|| Selector::parse(".ilTableOuter > div > table > tbody > tr").unwrap());
 static TABLE_CELLS: Lazy<Selector> = Lazy::new(|| Selector::parse("td").unwrap());
 static LIST_URL: Lazy<Regex> = Lazy::new(|| {
-	Regex::new("ilias\\.php\\?baseClass=ilobjplugindispatchgui&cmdNode=.{9}&cmdClass=xoctEventGUI&ref_id=\\d+&async=true").unwrap()
+	// Matched against the raw HTML, where ILIAS writes &amp; inside href attributes, so both
+	// separators have to be accepted. cmdNode is also not a fixed width -- every one on this
+	// deployment is 11 characters while the previous pattern hardcoded 9, which matched nothing.
+	Regex::new(
+		r#"(?i)ilias\.php\?baseClass=ilobjplugindispatchgui(?:&|&amp;)cmdNode=[^&"'\s<>]+(?:&|&amp;)cmdClass=xoctEventGUI(?:&|&amp;)ref_id=\d+(?:&|&amp;)async=true"#,
+	)
+	.unwrap()
 });
 
 const NO_ENTRIES: &str = "Keine Einträge";
@@ -26,7 +32,8 @@ pub async fn download(path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 	let full_url = {
 		let html = ilias.download(&url.url).await?.text().await?;
 		let list_url = LIST_URL.find(&html).context("failed to find xoct event link")?.as_str();
-		let full_list_url = format!("{}{}", ILIAS_URL, list_url);
+		// the match comes straight out of the HTML source, so undo the attribute escaping
+		let full_list_url = format!("{}{}", ILIAS_URL, list_url.replace("&amp;", "&"));
 
 		// first find the link to full video list
 		log!(1, "Loading {}", full_list_url);
@@ -90,4 +97,26 @@ pub async fn download(path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 		}
 	}
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::LIST_URL;
+
+	#[test]
+	fn list_url_matches_escaped_and_variable_length_cmdnode() {
+		// as it appears in the page source: &amp; escaping, 11-character cmdNode
+		let escaped = r#"<a href="ilias.php?baseClass=ilobjplugindispatchgui&amp;cmdNode=xu:nx:80:6k&amp;cmdClass=xoctEventGUI&amp;ref_id=2943594&amp;async=true">"#;
+		assert_eq!(
+			LIST_URL.find(escaped).map(|m| m.as_str().replace("&amp;", "&")),
+			Some("ilias.php?baseClass=ilobjplugindispatchgui&cmdNode=xu:nx:80:6k&cmdClass=xoctEventGUI&ref_id=2943594&async=true".to_owned())
+		);
+		// unescaped, and a cmdNode of a different length
+		let plain = "ilias.php?baseClass=ilobjplugindispatchgui&cmdNode=xu:nx&cmdClass=xoctEventGUI&ref_id=1&async=true";
+		assert!(LIST_URL.is_match(plain));
+		// a different plugin's link must not match
+		assert!(!LIST_URL.is_match(
+			"ilias.php?baseClass=ilobjplugindispatchgui&cmdNode=xu:nx&cmdClass=ilObjGroupGUI&ref_id=1&async=true"
+		));
+	}
 }
