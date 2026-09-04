@@ -1,9 +1,8 @@
 use std::{path::Path, sync::Arc};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use reqwest::Url;
 use scraper::{Html, Selector};
 
 use crate::{
@@ -16,127 +15,105 @@ use crate::{
 
 use super::{ILIAS, LINKS, URL};
 
-static A_TARGET_BLANK: Lazy<Selector> = Lazy::new(|| Selector::parse(r#"a[target="_blank"]"#).unwrap());
-static VIDEO_ROWS: Lazy<Selector> = Lazy::new(|| Selector::parse(".ilTableOuter > div > table > tbody > tr").unwrap());
-static TABLE_CELLS: Lazy<Selector> = Lazy::new(|| Selector::parse("td").unwrap());
-static ILIAS_PHP_URL: Lazy<Regex> = Lazy::new(|| Regex::new(r#"ilias\.php\?[^"'\s<>]+"#).unwrap());
+/// One video entry: the title link carries the player URL in `data-legacy-href`, because `href`
+/// now points at the external KIT media portal instead.
+static VIDEO_LINK: Lazy<Selector> = Lazy::new(|| Selector::parse(".c-entity__primary-identifier a").unwrap());
+static PAGE_SIZE: Lazy<Regex> = Lazy::new(|| Regex::new(r"page_size=(\d+)").unwrap());
 
-/// Pick the asynchronous xoct event list link out of raw page source. Matching the whole URL with
-/// one pattern was too brittle: query parameter order carries no meaning yet the old pattern
-/// required a fixed one, it hardcoded the cmdNode width, and it wanted a literal `&` where ILIAS
-/// writes `&amp;` inside href attributes. Substring tests avoid all three.
-fn find_xoct_list_url(html: &str) -> Option<String> {
-	ILIAS_PHP_URL
-		.find_iter(html)
-		.map(|m| m.as_str().replace("&amp;", "&"))
-		.find(|url| {
-			let url = url.to_ascii_lowercase();
-			url.contains("cmdclass=xocteventgui") && url.contains("async=true")
+/// Videos and, if the list looks truncated, the link to a larger page size.
+fn parse_video_page(source: &str) -> (Vec<(String, String)>, Option<String>) {
+	let html = Html::parse_document(source);
+	let videos: Vec<(String, String)> = html
+		.select(&VIDEO_LINK)
+		.filter_map(|link| {
+			let url = link.value().attr("data-legacy-href")?;
+			let title = link.text().collect::<String>().trim().to_owned();
+			if title.is_empty() {
+				return None;
+			}
+			// video::download prepends ILIAS_URL, so hand it a relative URL
+			Some((title, url.strip_prefix(ILIAS_URL).unwrap_or(url).to_owned()))
 		})
+		.collect();
+	// ponytail: one hop to the largest offered page size, which covers 50 videos; a collection
+	// bigger than that needs real pagination over the page= links
+	let larger = html
+		.select(&LINKS)
+		.filter_map(|l| l.value().attr("href"))
+		.filter_map(|h| {
+			PAGE_SIZE
+				.captures(h)
+				.map(|c| (c[1].parse::<usize>().unwrap_or(0), h.to_owned()))
+		})
+		.filter(|(size, _)| *size > videos.len())
+		.max_by_key(|(size, _)| *size)
+		.map(|(_, href)| href);
+	(videos, larger)
 }
-
-const NO_ENTRIES: &str = "Keine Einträge";
 
 pub async fn download(path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 	if ilias.opt.no_videos {
 		return Ok(());
 	}
-	let full_url = {
-		let html = ilias.download(&url.url).await?.text().await?;
-		let list_url = match find_xoct_list_url(&html) {
-			Some(url) => url,
-			None => {
-				// nothing to go on otherwise: keep the page so the next attempt is not another guess
-				if ilias.opt.debug_html {
-					save_debug_html(&ilias.opt.output, &format!("xoct_{}", url.ref_id), &html).await?;
-				}
-				return Err(anyhow!("failed to find xoct event link (re-run with --debug-html)"));
-			},
-		};
-		let full_list_url = format!("{}{}", ILIAS_URL, list_url);
-
-		// first find the link to full video list
-		log!(1, "Loading {}", full_list_url);
-		let data = ilias.download(&full_list_url).await?;
-		let html = data.text().await?;
-		let html = Html::parse_fragment(&html);
-		html.select(&LINKS)
-			.filter_map(|link| link.value().attr("href"))
-			.filter(|href| href.contains("trows=800"))
-			.map(|x| x.to_string())
-			.next()
-			.context("video list link not found")?
-	};
-	log!(1, "Rewriting {}", full_url);
-	let mut full_url = Url::parse(&format!("{}{}", ILIAS_URL, full_url))?;
-	let mut query_parameters = full_url
-		.query_pairs()
-		.map(|(x, y)| (x.into_owned(), y.into_owned()))
-		.collect::<Vec<_>>();
-	for (key, value) in &mut query_parameters {
-		match key.as_ref() {
-			"cmd" => *value = "asyncGetTableGUI".into(),
-			"cmdClass" => *value = "xocteventgui".into(),
-			_ => {},
+	// The event list is rendered straight into this page. Older Opencast plugin versions needed
+	// three requests to reach an async table endpoint; that endpoint no longer exists.
+	let source = ilias.download(&url.url).await?.text().await?;
+	let (mut videos, larger) = parse_video_page(&source);
+	if let Some(larger) = larger {
+		if !videos.is_empty() {
+			log!(1, "Requesting full video list: {}", larger);
+			let source = ilias.download(&larger).await?.text().await?;
+			videos = parse_video_page(&source).0;
 		}
 	}
-	query_parameters.push(("cmdMode".into(), "asynch".into()));
-	full_url
-		.query_pairs_mut()
-		.clear()
-		.extend_pairs(&query_parameters)
-		.finish();
-	log!(1, "Loading {}", full_url);
-	let data = ilias.download(full_url.as_str()).await?;
-	let html = data.text().await?;
-	let html = Html::parse_fragment(&html);
-	for row in html.select(&VIDEO_ROWS) {
-		let link = row.select(&A_TARGET_BLANK).next();
-		if link.is_none() {
-			if !row.text().any(|x| x == NO_ENTRIES) {
-				warning!(format => "table row without link in {}", url.url);
-			}
-			continue;
+	if videos.is_empty() {
+		if ilias.opt.debug_html {
+			save_debug_html(&ilias.opt.output, &format!("xoct_{}", url.ref_id), &source).await?;
 		}
-		let link = link.unwrap();
-		let mut cells = row.select(&TABLE_CELLS);
-		if let Some(title) = cells.nth(2) {
-			let title = title.text().collect::<String>();
-			let title = title.trim();
-			if title.starts_with("<div") {
-				continue;
-			}
-			let mut path = path.to_owned();
-			path.push(format!("{}.mp4", file_escape(title)));
-			log!(1, "Found video: {}", title);
-			let video = Object::Video {
-				url: URL::raw(link.value().attr("href").context("video link without href")?.to_owned()),
-			};
-			let ilias = Arc::clone(&ilias);
-			spawn(process_gracefully(ilias, path, video));
-		}
+		return Err(anyhow!("no videos found in collection (re-run with --debug-html)"));
+	}
+	for (title, video_url) in videos {
+		log!(1, "Found video: {}", title);
+		let mut path = path.to_owned();
+		path.push(format!("{}.mp4", file_escape(&title)));
+		let video = Object::Video {
+			url: URL::raw(video_url),
+		};
+		let ilias = Arc::clone(&ilias);
+		spawn(process_gracefully(ilias, path, video));
 	}
 	Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-	use super::find_xoct_list_url;
+	use super::parse_video_page;
 
 	#[test]
-	fn finds_xoct_list_link_regardless_of_escaping_or_order() {
-		// as emitted in page source: &amp; escaping, 11-character cmdNode
-		let escaped = r#"<a href="ilias.php?baseClass=ilobjplugindispatchgui&amp;cmdNode=xu:nx:80:6k&amp;cmdClass=xoctEventGUI&amp;ref_id=2943594&amp;async=true">x</a>"#;
+	fn reads_title_and_player_url_from_entity_markup() {
+		let page = r#"<ul>
+			<li><div class="c-entity__primary-identifier"><a
+				href="https://ilias-medien.bibliothek.kit.edu/details/abc"
+				data-legacy-href="https://ilias.studium.kit.edu/ilias.php?cmdClass=xoctPlayerGUI&amp;cmd=streamVideo&amp;eid=abc"
+				>Lecture 1 - Introduction</a></div></li>
+			<li><a href="ilias.php?ref_id=1&amp;page_size=50">50</a></li>
+		</ul>"#;
+		let (videos, larger) = parse_video_page(page);
+		// the player URL comes from data-legacy-href, not href, and is made relative for video.rs
 		assert_eq!(
-			find_xoct_list_url(escaped).as_deref(),
-			Some("ilias.php?baseClass=ilobjplugindispatchgui&cmdNode=xu:nx:80:6k&cmdClass=xoctEventGUI&ref_id=2943594&async=true")
+			videos,
+			vec![(
+				"Lecture 1 - Introduction".to_owned(),
+				"ilias.php?cmdClass=xoctPlayerGUI&cmd=streamVideo&eid=abc".to_owned()
+			)]
 		);
-		// a different parameter order must still match: order carries no meaning
-		let reordered = "ilias.php?ref_id=1&async=true&cmdClass=xoctEventGUI&cmdNode=xu:nx&baseClass=ilobjplugindispatchgui";
-		assert_eq!(find_xoct_list_url(reordered).as_deref(), Some(reordered));
-		// a non-async xoct link is not the list endpoint
-		assert!(find_xoct_list_url("ilias.php?cmdClass=xoctEventGUI&ref_id=1").is_none());
-		// some other plugin's link must not be picked up
-		assert!(find_xoct_list_url("ilias.php?cmdClass=ilObjGroupGUI&ref_id=1&async=true").is_none());
+		// a page size larger than the number of videos found is offered as a follow-up
+		assert_eq!(larger.as_deref(), Some("ilias.php?ref_id=1&page_size=50"));
+	}
+
+	#[test]
+	fn ignores_pages_without_entities() {
+		let (videos, _) = parse_video_page(r#"<div class="il-item">Posteingang</div>"#);
+		assert!(videos.is_empty());
 	}
 }
