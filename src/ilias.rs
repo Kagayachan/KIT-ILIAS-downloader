@@ -454,15 +454,22 @@ impl ILIAS {
 	pub async fn get_course_content(&self, url: &URL) -> Result<(Vec<Result<Object>>, Option<String>, Vec<String>)> {
 		// The page fetched here is usually already the one holding the items, so scrape it right
 		// away. Only when the items live on a content tab we are not on is a second request needed.
-		let mut page = self.scrape_content_page(&url.url).await?;
+		let mut page_url = url.url.clone();
+		let mut page = self.scrape_content_page(&page_url).await?;
 		if let Some(content_url) = page.content_tab.take() {
-			log!(1, "Selecting content tab for {}", url.url);
-			page = self.scrape_content_page(&content_url).await?;
+			log!(1, "Selecting content tab for {}", page_url);
+			page_url = content_url;
+			page = self.scrape_content_page(&page_url).await?;
 		}
 		if let Some((slug, html_text)) = page.debug_save {
 			if let Err(e) = save_debug_html(&self.opt.output, &slug, &html_text).await {
 				warning!(e);
 			}
+		}
+		// An empty container is usually a page shape get_items does not match yet, not an empty
+		// folder -- without this it just leaves an empty directory and looks like a clean sync.
+		if page.items.is_empty() {
+			warning!(format => "no items found on {} (re-run with --debug-html to dump the page)", page_url);
 		}
 		Ok((page.items, page.main_text, page.links))
 	}
@@ -654,6 +661,11 @@ impl Object {
 			if target.starts_with("lm_") {
 				// fancy interactive task
 				return Ok(Presentation { name, url });
+			}
+			if target.starts_with("svy_") {
+				// nothing to download; without this it falls through to the ref_id branch below
+				// and gets crawled as a folder, costing a request and leaving an empty directory
+				return Ok(Survey { name, url });
 			}
 			if target.starts_with("fold_") || target.starts_with("copa_") {
 				let ref_id = url.target.as_ref().unwrap().split('_').nth(1).unwrap();

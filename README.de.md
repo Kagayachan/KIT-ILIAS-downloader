@@ -136,7 +136,7 @@ FLAGS:
     -v                        Verbose logging
 
 OPTIONS:
-    -j, --jobs <jobs>              Parallel download jobs [default: 1]
+    -j, --jobs <jobs>              Parallel download jobs [default: 4]
     -o, --output <output>          Output directory
         --pass-path <pass-path>    Path inside `pass(1)` to the password for your KIT account
     -P, --password <password>      KIT account password

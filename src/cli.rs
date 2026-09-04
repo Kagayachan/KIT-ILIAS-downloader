@@ -54,8 +54,9 @@ pub struct Opt {
 	#[structopt(short, long, parse(from_os_str))]
 	pub output: PathBuf,
 
-	/// Parallel download jobs
-	#[structopt(short, long, default_value = "1")]
+	/// Parallel download jobs. Does not raise the request rate: --rate gates every
+	/// request globally, so this only lets body transfers overlap with crawling.
+	#[structopt(short, long, default_value = "4")]
 	pub jobs: usize,
 
 	/// Proxy, e.g. socks5h://127.0.0.1:1080
