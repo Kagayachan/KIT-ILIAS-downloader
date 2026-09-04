@@ -1,27 +1,39 @@
 use std::{path::Path, sync::Arc};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest::Url;
 use scraper::{Html, Selector};
 
-use crate::{ilias::Object, process_gracefully, queue::spawn, util::file_escape, ILIAS_URL};
+use crate::{
+	ilias::Object,
+	process_gracefully,
+	queue::spawn,
+	util::{file_escape, save_debug_html},
+	ILIAS_URL,
+};
 
 use super::{ILIAS, LINKS, URL};
 
 static A_TARGET_BLANK: Lazy<Selector> = Lazy::new(|| Selector::parse(r#"a[target="_blank"]"#).unwrap());
 static VIDEO_ROWS: Lazy<Selector> = Lazy::new(|| Selector::parse(".ilTableOuter > div > table > tbody > tr").unwrap());
 static TABLE_CELLS: Lazy<Selector> = Lazy::new(|| Selector::parse("td").unwrap());
-static LIST_URL: Lazy<Regex> = Lazy::new(|| {
-	// Matched against the raw HTML, where ILIAS writes &amp; inside href attributes, so both
-	// separators have to be accepted. cmdNode is also not a fixed width -- every one on this
-	// deployment is 11 characters while the previous pattern hardcoded 9, which matched nothing.
-	Regex::new(
-		r#"(?i)ilias\.php\?baseClass=ilobjplugindispatchgui(?:&|&amp;)cmdNode=[^&"'\s<>]+(?:&|&amp;)cmdClass=xoctEventGUI(?:&|&amp;)ref_id=\d+(?:&|&amp;)async=true"#,
-	)
-	.unwrap()
-});
+static ILIAS_PHP_URL: Lazy<Regex> = Lazy::new(|| Regex::new(r#"ilias\.php\?[^"'\s<>]+"#).unwrap());
+
+/// Pick the asynchronous xoct event list link out of raw page source. Matching the whole URL with
+/// one pattern was too brittle: query parameter order carries no meaning yet the old pattern
+/// required a fixed one, it hardcoded the cmdNode width, and it wanted a literal `&` where ILIAS
+/// writes `&amp;` inside href attributes. Substring tests avoid all three.
+fn find_xoct_list_url(html: &str) -> Option<String> {
+	ILIAS_PHP_URL
+		.find_iter(html)
+		.map(|m| m.as_str().replace("&amp;", "&"))
+		.find(|url| {
+			let url = url.to_ascii_lowercase();
+			url.contains("cmdclass=xocteventgui") && url.contains("async=true")
+		})
+}
 
 const NO_ENTRIES: &str = "Keine Einträge";
 
@@ -31,9 +43,17 @@ pub async fn download(path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 	}
 	let full_url = {
 		let html = ilias.download(&url.url).await?.text().await?;
-		let list_url = LIST_URL.find(&html).context("failed to find xoct event link")?.as_str();
-		// the match comes straight out of the HTML source, so undo the attribute escaping
-		let full_list_url = format!("{}{}", ILIAS_URL, list_url.replace("&amp;", "&"));
+		let list_url = match find_xoct_list_url(&html) {
+			Some(url) => url,
+			None => {
+				// nothing to go on otherwise: keep the page so the next attempt is not another guess
+				if ilias.opt.debug_html {
+					save_debug_html(&ilias.opt.output, &format!("xoct_{}", url.ref_id), &html).await?;
+				}
+				return Err(anyhow!("failed to find xoct event link (re-run with --debug-html)"));
+			},
+		};
+		let full_list_url = format!("{}{}", ILIAS_URL, list_url);
 
 		// first find the link to full video list
 		log!(1, "Loading {}", full_list_url);
@@ -101,22 +121,22 @@ pub async fn download(path: &Path, ilias: Arc<ILIAS>, url: &URL) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-	use super::LIST_URL;
+	use super::find_xoct_list_url;
 
 	#[test]
-	fn list_url_matches_escaped_and_variable_length_cmdnode() {
-		// as it appears in the page source: &amp; escaping, 11-character cmdNode
-		let escaped = r#"<a href="ilias.php?baseClass=ilobjplugindispatchgui&amp;cmdNode=xu:nx:80:6k&amp;cmdClass=xoctEventGUI&amp;ref_id=2943594&amp;async=true">"#;
+	fn finds_xoct_list_link_regardless_of_escaping_or_order() {
+		// as emitted in page source: &amp; escaping, 11-character cmdNode
+		let escaped = r#"<a href="ilias.php?baseClass=ilobjplugindispatchgui&amp;cmdNode=xu:nx:80:6k&amp;cmdClass=xoctEventGUI&amp;ref_id=2943594&amp;async=true">x</a>"#;
 		assert_eq!(
-			LIST_URL.find(escaped).map(|m| m.as_str().replace("&amp;", "&")),
-			Some("ilias.php?baseClass=ilobjplugindispatchgui&cmdNode=xu:nx:80:6k&cmdClass=xoctEventGUI&ref_id=2943594&async=true".to_owned())
+			find_xoct_list_url(escaped).as_deref(),
+			Some("ilias.php?baseClass=ilobjplugindispatchgui&cmdNode=xu:nx:80:6k&cmdClass=xoctEventGUI&ref_id=2943594&async=true")
 		);
-		// unescaped, and a cmdNode of a different length
-		let plain = "ilias.php?baseClass=ilobjplugindispatchgui&cmdNode=xu:nx&cmdClass=xoctEventGUI&ref_id=1&async=true";
-		assert!(LIST_URL.is_match(plain));
-		// a different plugin's link must not match
-		assert!(!LIST_URL.is_match(
-			"ilias.php?baseClass=ilobjplugindispatchgui&cmdNode=xu:nx&cmdClass=ilObjGroupGUI&ref_id=1&async=true"
-		));
+		// a different parameter order must still match: order carries no meaning
+		let reordered = "ilias.php?ref_id=1&async=true&cmdClass=xoctEventGUI&cmdNode=xu:nx&baseClass=ilobjplugindispatchgui";
+		assert_eq!(find_xoct_list_url(reordered).as_deref(), Some(reordered));
+		// a non-async xoct link is not the list endpoint
+		assert!(find_xoct_list_url("ilias.php?cmdClass=xoctEventGUI&ref_id=1").is_none());
+		// some other plugin's link must not be picked up
+		assert!(find_xoct_list_url("ilias.php?cmdClass=ilObjGroupGUI&ref_id=1&async=true").is_none());
 	}
 }
